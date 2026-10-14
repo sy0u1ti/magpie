@@ -25,6 +25,9 @@ type groupsJSON struct {
 	Deciders []modelRef `json:"deciders"`
 	// Found: magpie finds groups on its own (provider.AutoGroupsOn)
 	Found bool `json:"found"`
+	// Unlisted: every group offers the group alone, its models kept out
+	// of the agents' lists (provider.GroupsUnlisted)
+	Unlisted bool `json:"unlisted"`
 	// Moved: the agents turning found groups off moved off one of them,
 	// to its model from one provider (agent.Reseat)
 	Moved []agent.Move `json:"moved,omitempty"`
@@ -219,6 +222,7 @@ func keyPools(p provider.Provider) []poolJSON {
 
 func groupsState() groupsJSON {
 	out := groupsJSON{Groups: []groupJSON{}, Models: []modelRef{}, Pools: []poolJSON{}, Deciders: []modelRef{}, Found: provider.AutoGroupsOn(), Templates: provider.Templates()}
+	out.Unlisted = provider.GroupsUnlisted()
 	for i := range out.Templates {
 		if out.Templates[i].Group.Members == nil {
 			out.Templates[i].Group.Members = []string{} // one that can't be made has none
@@ -377,6 +381,10 @@ func groupRoutes(mux *http.ServeMux) {
 			// from one provider; a request still naming one goes there too
 			// (provider.AutoStandIn)
 			moved, err = agent.Reseat(func() error { return provider.SetAutoGroups(body.On) })
+		case "unlisted":
+			// every group offers the group alone, or each one's own
+			// Model lists setting decides again (provider.SetGroupsUnlisted)
+			err = provider.SetGroupsUnlisted(body.On)
 		case "save":
 			to := strings.ToLower(strings.TrimSpace(in.ID))
 			if body.From == "" || body.From == to {

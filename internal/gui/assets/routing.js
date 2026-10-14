@@ -3211,9 +3211,13 @@
   // for the providers' models), so it sits over the groups rather than in
   // one group's editor (PAMI on Discord)
   const gNames = el("div", "rt-gnames");
+  // whether every group offers the group alone, its models kept out of the
+  // agents' lists: one setting for them all, where each group's editor has
+  // its own Model lists pick (蓝猫 on Discord: it was one group at a time)
+  const gUnlist = el("div", "rt-gunlist");
   // the groups go with the routing groups built-in plugin; the pools stay
-  for (const n of [gHead, gFound, gNames, gList]) n.dataset.feature = "groups";
-  gsec.append(gHead, gFound, gNames, gList, pHead, pList);
+  for (const n of [gHead, gFound, gNames, gUnlist, gList]) n.dataset.feature = "groups";
+  gsec.append(gHead, gFound, gNames, gUnlist, gList, pHead, pList);
   // after the requests: a request picked in the list plays on the stage,
   // so the list sits right under it
   more.append(gsec);
@@ -3524,6 +3528,7 @@
     replaceKeeping(gHead, head);
     drawFound();
     drawNames();
+    drawUnlisted();
     const rows = [];
     if (!gSel && !own && !words.length && tpls.length) rows.push(templateCards(tpls));
     if (gSel) rows.push(selectBar(shown));
@@ -3802,6 +3807,25 @@
     // an open editor says what its group will be called: drawn again with it
     gNames.replaceChildren(txt, suffixSegs(() => renderGroups()));
   }
+  // drawUnlisted: the switch for every group's Model lists pick at once —
+  // on, each group is offered alone and the models it names, or its
+  // patterns match, leave the agents' lists and /v1/models. Each group's
+  // own pick is kept and decides again once this is off.
+  function drawUnlisted() {
+    const on = !!groups.unlisted;
+    const s = el("button", "lib-switch" + (on ? " on" : ""));
+    s.type = "button";
+    s.setAttribute("role", "switch");
+    s.setAttribute("aria-checked", String(on));
+    s.setAttribute("aria-label", t("Offer every group alone"));
+    s.append(el("i"));
+    s.onclick = (e) => { e.stopPropagation(); setUnlisted(!on, s); };
+    const txt = el("div", "txt");
+    txt.append(el("b", "", t("Offer every group alone")), el("small", "", on
+      ? t("On: every group’s models leave the agents’ lists and /v1/models, so each group is offered alone — as “The group alone” does for one group. A request naming one is still answered. Switch it off and each group’s own Model lists pick decides again.")
+      : t("Off: each group’s own Model lists pick decides. On: every group’s models leave the agents’ lists and /v1/models at once, so each group is offered alone; a request naming one is still answered.")));
+    gUnlist.replaceChildren(txt, s);
+  }
   async function setFound(on, s) {
     if (groupDirty() && !(await confirmDiscard())) return;
     s.classList.toggle("on", on);
@@ -3811,6 +3835,23 @@
       gEdit = null;
       renderGroups();
       saidMoved(on ? t("Found groups are on") : t("Found groups are off: only yours are listed and served"), groups.moved);
+      load(); // the gateway's model list, the agents' pickers
+    } catch (e) {
+      s.classList.toggle("on", !on);
+      s.setAttribute("aria-checked", String(!on));
+      status(e.message, "err");
+    }
+  }
+  async function setUnlisted(on, s) {
+    if (groupDirty() && !(await confirmDiscard())) return;
+    s.classList.toggle("on", on);
+    s.setAttribute("aria-checked", String(on));
+    try {
+      groups = groupsFrom(await api("groups/unlisted", { on }));
+      renderGroups();
+      status(on
+        ? t("Every group is offered alone: its models leave the agents’ lists")
+        : t("Each group’s own Model lists pick decides again"), "ok");
       load(); // the gateway's model list, the agents' pickers
     } catch (e) {
       s.classList.toggle("on", !on);

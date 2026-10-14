@@ -713,6 +713,8 @@ func groupCmd(args []string) error {
 		return showGroup(g)
 	case "auto", "found":
 		return autoGroupsCmd(rest)
+	case "listed", "unlist":
+		return groupsListedCmd(rest)
 	case "restore", "unhide":
 		if len(rest) != 1 {
 			return fmt.Errorf("magpie group restore <id>")
@@ -963,6 +965,42 @@ func autoGroupsCmd(args []string) error {
 		fmt.Println(green.Render("✓"), "found groups are on", muted.Render("· a model two or more providers serve is a group of them again"))
 	} else {
 		fmt.Println(green.Render("✓"), "found groups are off", muted.Render("· the groups you made or changed stay; a request for an auto- group goes to its model from one provider"))
+	}
+	return nil
+}
+
+// groupsListedCmd says whether every routing group offers the group alone
+// in the agents' lists, or turns that on or off for all of them at once:
+// on, the models each group names leave the lists, as listed=no does for
+// one group. Each group's own setting is kept and decides again once it is
+// off.
+func groupsListedCmd(args []string) error {
+	if len(args) == 0 {
+		if provider.GroupsUnlisted() {
+			fmt.Println("groups are", green.Render("unlisted"), muted.Render("· every group is offered alone: its models leave the agents' lists; magpie group listed yes lists them again"))
+		} else {
+			fmt.Println("groups are", muted.Render("listed"), muted.Render("· each group's own Model lists setting decides; magpie group listed no has every group offer the group alone"))
+		}
+		return nil
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("magpie group listed [yes|no]")
+	}
+	var on bool
+	switch strings.ToLower(args[0]) {
+	case "no", "unlisted", "off", "false", "0":
+		on = true
+	case "yes", "listed", "on", "true", "1":
+	default:
+		return fmt.Errorf("magpie group listed [yes|no]")
+	}
+	if err := provider.SetGroupsUnlisted(on); err != nil {
+		return err
+	}
+	if on {
+		fmt.Println(green.Render("✓"), "every group offers the group alone", muted.Render("· its models leave the agents' lists and /v1/models; a request naming one is still answered. Each group's own setting is kept"))
+	} else {
+		fmt.Println(green.Render("✓"), "each group's own Model lists setting decides again")
 	}
 	return nil
 }

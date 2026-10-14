@@ -442,6 +442,30 @@ func SetAutoGroups(on bool) error {
 	return store(f)
 }
 
+// GroupsUnlisted reports whether every routing group's models are kept out
+// of the lists agents see at once (SetGroupsUnlisted): each group is then
+// offered alone, as a group with Unlists of its own is.
+func GroupsUnlisted() bool { return load().GroupsUnlisted }
+
+// SetGroupsUnlisted has every routing group offer the group alone: the
+// models its groups name, and those their patterns match, leave the lists
+// agents and the gateway's /v1/models show, for every group at once, where
+// Group.Unlists does it for one (蓝猫 on Discord: the switch was one
+// group at a time). Each group's own setting is kept as it is and decides
+// again once this is off, so nothing the user set is lost. The models stay
+// served: a group routes over them, and a request naming one is answered.
+func SetGroupsUnlisted(on bool) error {
+	f, err := read()
+	if err != nil {
+		return err
+	}
+	if f.GroupsUnlisted == on {
+		return nil
+	}
+	f.GroupsUnlisted = on
+	return store(f)
+}
+
 // AutoGroupID is the id of the group magpie finds for a model, however a
 // vendor spells it: "auto-claude-opus-5-5" for claude-opus-5.5.
 func AutoGroupID(model string) string { return "auto-" + Slug(sameModel(model)) }

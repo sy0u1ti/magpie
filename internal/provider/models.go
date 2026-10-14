@@ -2031,14 +2031,18 @@ func Catalog() []Entry {
 
 // unlistedByGroups are the models, by "provider/model", that a group
 // keeps out of the lists (Group.Unlists): those it names, a member fixed
-// at an effort counting as its model, and those its patterns match.
+// at an effort counting as its model, and those its patterns match. The
+// whole-list setting (GroupsUnlisted) counts as every group saying so,
+// each group's own setting left as the user has it.
 func unlistedByGroups(entries []Entry) map[string]bool {
-	if !slices.ContainsFunc(heldOf("file", load).Groups, func(g Group) bool { return g.Unlists }) {
+	f := heldOf("file", load)
+	all := f.GroupsUnlisted
+	if !all && !slices.ContainsFunc(f.Groups, func(g Group) bool { return g.Unlists }) {
 		return nil
 	}
 	out := map[string]bool{}
 	for _, g := range groupsIn(entries) {
-		if !g.Unlists || g.Hidden || g.Disabled {
+		if !(all || g.Unlists) || g.Hidden || g.Disabled {
 			continue
 		}
 		for _, id := range g.Members {

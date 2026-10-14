@@ -385,6 +385,12 @@ type file struct {
 	// NoAutoGroups: the user turned off the groups magpie finds on its
 	// own (SetAutoGroups); the groups they made or changed stay.
 	NoAutoGroups bool `json:"noAutoGroups,omitempty"`
+	// GroupsUnlisted: the user keeps every routing group's models out of
+	// the lists agents see at once (SetGroupsUnlisted), so each group is
+	// offered alone. It is the whole-list form of Group.Unlists, which a
+	// single group carries: a group's own setting is kept as it is and
+	// decides again once this is off.
+	GroupsUnlisted bool `json:"groupsUnlisted,omitempty"`
 	// Order is the order the user put the providers in on the Providers
 	// tab (#499), by id; one not in it follows those that are, in the
 	// order it was added (see SetOrder).
