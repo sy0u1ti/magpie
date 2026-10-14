@@ -507,6 +507,13 @@ type Settings struct {
 	// agent id and then entry id, as the user dragged them on the Agents
 	// page (Codex's, #855): the ones named first, any other after them.
 	OrderedModels map[string][]string `json:"orderedModels,omitempty"`
+	// ModelSort is how the agents' lists put the models the user hasn't
+	// dragged into an order of their own in: one of provider's Sort*
+	// values, "" magpie's own order (each provider's models together, in
+	// the order the providers were added). One setting for every agent,
+	// as PlainNames is for their names; a model named in OrderedModels
+	// keeps the place the user put it whatever this says.
+	ModelSort string `json:"modelSort,omitempty"`
 	// FastPicks are the catalog entries ("<provider>/<model>") an agent's
 	// picks of are sent in their vendor's fast mode, by agent id (#954):
 	// switched by the model in the agent's picker, as a routing group's

@@ -66,6 +66,14 @@ const modelUsage = `usage:
                                                  own, a name you gave a model just as you wrote it, "Opus 5.5",
                                                  the others as on; off, "Sol" alone — but two a list would name
                                                  the same keep it
+  magpie model sort [provider|name]              how the agents' lists put the models you haven't dragged
+                                                 into an order of your own: provider, as by default, each
+                                                 provider's models together in the order the providers were
+                                                 added; name, the models whose names agree sitting together,
+                                                 names in order — one model on several providers is then one
+                                                 run. The routing groups lead either way, and a model you
+                                                 dragged keeps the place you put it. The Agents page's own
+                                                 Order view is the drag itself
   magpie model compact [on|off|<size>]           whether Codex and Claude Code compact a long conversation at
                                                  272K: on, as by default, for a model of a longer window (in
                                                  Claude Code, a Claude model runs to its own); off, at the
@@ -109,6 +117,8 @@ func modelCmd(args []string) error {
 		return modelWires()
 	case "suffix", "suffixes":
 		return modelSuffix(args[1:])
+	case "sort", "order":
+		return modelSort(args[1:])
 	case "compact", "full-context":
 		return modelCompact(args[1:])
 	case "context", "ctx":
@@ -605,6 +615,41 @@ func modelPrices() error {
 		for _, t := range p.Tiers {
 			fmt.Println(faint.Render(fmt.Sprintf("  · over %s input tokens $%.4g/$%.4g in/out · cache %s/%s", tokenSize(t.Above), t.Input, t.Output, money(t.CacheRead), money(t.CacheWrite))))
 		}
+	}
+	return nil
+}
+
+// modelSort says how an agent's lists put the models the user hasn't
+// dragged into an order of their own (provider, magpie's own; name, one
+// model's providers together), or sets it.
+func modelSort(args []string) error {
+	if len(args) == 0 {
+		if provider.ModelSort() == provider.SortName {
+			fmt.Println("name", muted.Render("· one model's providers sit together, names in order; magpie model sort provider restores"))
+		} else {
+			fmt.Println("provider", muted.Render("· each provider's models together, as by default; magpie model sort name groups them by name"))
+		}
+		return nil
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("magpie model sort [provider|name]")
+	}
+	mode := strings.ToLower(strings.TrimSpace(args[0]))
+	switch mode {
+	case "provider", "default", "off":
+		mode = provider.SortProvider
+	case "name", "alphabetical", "alpha":
+		mode = provider.SortName
+	default:
+		return fmt.Errorf("magpie model sort provider|name, not %q", args[0])
+	}
+	if err := provider.SetModelSort(mode); err != nil {
+		return err
+	}
+	if mode == provider.SortName {
+		fmt.Println(green.Render("✓"), "the agents' models are put by name", muted.Render("· one model's providers sit together; a routing group leads, and a model you dragged keeps its place"))
+	} else {
+		fmt.Println(green.Render("✓"), "the agents' models are put by provider again", muted.Render("· each provider's models together, in the order the providers were added"))
 	}
 	return nil
 }

@@ -21554,6 +21554,19 @@ function noNamesSaid() {
   const names = (state.agents || []).filter((a) => a.wired && a.noNames).map((a) => a.name);
   return names.length ? t("Changes nothing in {agents}: magpie’s names don’t reach their model lists", { agents: names.join(", ") }) : "";
 }
+// renderModelSort: how the agents' lists put the models the user hasn't
+// dragged into an order of their own — each provider's models together, as
+// by default, or by name, one model's providers together (provider's
+// ModelSort). One setting for every agent, as Provider in model names is
+// for their names; the Agents page's Order view is the drag itself.
+function renderModelSort(s = state.settings || {}) {
+  const seg = $("#modelSortSegs");
+  if (!seg) return;
+  const mode = s.modelSort === "name" ? "name" : "provider";
+  seg.replaceChildren(segs([["provider", t("By provider")], ["name", t("By name")]], mode, (v) =>
+    writingPrefs(api("settings/model-sort", { mode: v })).then((ns) => { prefs = state.settings = ns; renderSettings(); })
+      .catch((e) => { status(t(e.message), "err"); renderSettings(); })));
+}
 // noNamesLine is that line, hidden while it says nothing: a page drawn
 // before the agents are read (Routing, a provider's editor) is said again
 // once they are (redrawNoNames)
@@ -21621,6 +21634,7 @@ function renderTrayUsage(s, keep) {
   renderAlerts(s, keep);
   $("#plainNamesSegs").replaceChildren(suffixSegs());
   sayNoNamesInSettings();
+  renderModelSort(s);
   // Codex's own models in multi-agent V1 (their subagents' tasks go as text),
   // so a GPT lead can run a subagent on magpie's other models (#141). Where
   // Codex's own multi_agent_v2 is on in the config magpie routes it wins, and

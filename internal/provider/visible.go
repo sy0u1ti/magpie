@@ -2,6 +2,7 @@ package provider
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -313,6 +314,56 @@ func ModelOrder(agent string) []string {
 	return slices.Clone(heldSettings().OrderedModels[strings.ToLower(agent)])
 }
 
+// The ways an agent's lists put the models it has no order of their own
+// for in (Settings.ModelSort): magpie's own order, each provider's models
+// together in the order the providers were added; or by name, the models
+// whose names agree on it (see sameModel) sitting together, the names in
+// order.
+const (
+	// SortProvider is magpie's own order, and what an agent without a
+	// setting gets.
+	SortProvider = "provider"
+	// SortName groups an agent's models by their name: two providers'
+	// spelling of one model ("GLM-5.3" and "glm-5.3") sit together
+	// instead of each provider's models sitting together.
+	SortName = "name"
+)
+
+// ModelSort is how the agents' lists order the models the user hasn't
+// dragged into an order of their own (SortProvider or SortName); "" is
+// SortProvider.
+func ModelSort() string {
+	if heldSettings().ModelSort == SortName {
+		return SortName
+	}
+	return SortProvider
+}
+
+// SetModelSort has the agents' lists order the models the user hasn't
+// dragged into an order of their own as mode says (SortProvider or
+// SortName), and the agents told. The order the user dragged models into
+// (SetModelOrder) comes first in either, so nothing they put in place
+// moves.
+func SetModelSort(mode string) error {
+	switch mode {
+	case SortProvider, "":
+		mode = ""
+	case SortName:
+	default:
+		return fmt.Errorf("models sorted by provider or name, not %q", mode)
+	}
+	s := settings.Load()
+	if s.ModelSort == mode {
+		return nil
+	}
+	s.ModelSort = mode
+	if err := settings.Save(s); err != nil {
+		return err
+	}
+	catalog.Touched()
+	return nil
+}
+
 // SetModelOrder lists agent's models in this order, by entry id: the ones
 // it names first, as it names them, then every other as before; none puts
 // them back in magpie's own order. Only agent's lists follow it.
@@ -349,10 +400,16 @@ func SetModelOrder(agent string, ids []string) error {
 // InOrder is es in agent's order: the entries ModelOrder names first, as it
 // names them, then the rest as they come — a model added since goes after.
 // Codex's own, a ChatGPT account's models, lead the rest, as Codex's list
-// has them before magpie's.
+// has them before magpie's. The rest are put by the agent's ModelSort:
+// magpie's own order (each provider's together), or by name, the models
+// whose names agree on it sitting together (SortName). A routing group
+// keeps the place magpie's own order gives it, before the models, however
+// the rest are put: a group is one thing agents pick, not a model of a
+// name to sit beside.
 func InOrder(agent string, es []Entry) []Entry {
 	order := ModelOrder(agent)
-	if len(order) == 0 {
+	byName := ModelSort() == SortName
+	if len(order) == 0 && !byName {
 		return es
 	}
 	at := make(map[string]int, len(order))
@@ -369,7 +426,41 @@ func InOrder(agent string, es []Entry) []Entry {
 		}
 		return len(order)
 	}
-	slices.SortStableFunc(out, func(a, b Entry) int { return rank(a) - rank(b) })
+	// name is what the models are put by under SortName: the name the
+	// agents' lists show, lower-cased so one model's name sorts together
+	// however a vendor capitals it ("GLM-5.3" and "glm-5.3"), and two
+	// providers' models of one name sit together rather than each
+	// provider's together
+	name := func(e Entry) string {
+		n := e.PlainName()
+		if n == "" {
+			n = e.Model
+		}
+		return strings.ToLower(n)
+	}
+	slices.SortStableFunc(out, func(a, b Entry) int {
+		// what the user dragged comes first, in their order, whatever
+		// this setting says
+		if ra, rb := rank(a), rank(b); ra != rb {
+			return ra - rb
+		}
+		if !byName {
+			return 0
+		}
+		// past their own order: a routing group is not a model of a name
+		// to sit beside one, so the groups keep magpie's own order ahead
+		// of the models and among themselves
+		if ga, gb := a.Group != "", b.Group != ""; ga != gb {
+			if ga {
+				return -1
+			}
+			return 1
+		}
+		if a.Group != "" {
+			return 0
+		}
+		return strings.Compare(name(a), name(b))
+	})
 	return out
 }
 
